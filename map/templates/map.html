@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Bacoor Barangay Map</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" integrity="sha256-kLaT2GOSpHechhsozzB+flnD+zUyjE2LlfWPgU04xyI=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js" integrity="sha256-WBkoXOwTeyKclOHuWtc+i2uENFpDZ9YPdf5Hf+D7ewM=" crossorigin=""></script>    
+    <style>
+      #mapid {
+        height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="mapid"></div>
+
+
+<script>
+
+  var map = L.map('mapid').setView([14.4337, 120.9629], 12);
+
+var explorationData = JSON.parse(sessionStorage.getItem('explorationData')) || {};
+var fillColors = {
+  default: 'gray',
+  strayed: 'blue',
+  traveled: 'yellow',
+  passed: 'red'
+};
+
+function getColor(status) {
+  return fillColors[status] || fillColors.default;
+}
+
+fetch('static/map.geojson')
+  .then(function(response) {
+    return response.json();
+  })
+  .then(function(data) {
+    // filter barangays from Bacoor
+    var bacoorData = {
+      type: "FeatureCollection",
+      features: data.features.filter(function(feature) {
+        return feature.properties.Mun_Name == "BACOOR CITY";
+      })
+    };
+    // add the barangays to the map
+    L.geoJSON(bacoorData, {
+      style: function(feature) {
+        return {
+          weight: 2,
+          opacity: 1,
+          color: 'white',
+          fillOpacity: 0.7,
+          fillColor: getColor(explorationData[feature.properties.Bgy_Name])
+        };
+      },
+      onEachFeature: function(feature, layer) {
+        layer.bindPopup('<h3>' + feature.properties.Bgy_Name + '</h3>');
+        layer.on('click', function(e) {
+          var status = document.getElementById('exploration-status').value;
+          explorationData[feature.properties.Bgy_Name] = status;
+          sessionStorage.setItem('explorationData', JSON.stringify(explorationData));
+          layer.setStyle({ fillColor: getColor(status) });
+        });
+      }
+    }).addTo(map);
+  });
+
+var explorationStatusSelect = L.control({ position: 'topleft' });
+explorationStatusSelect.onAdd = function(map) {
+  var div = L.DomUtil.create('div', 'leaflet-control');
+  div.innerHTML = '<select id="exploration-status">' +
+    '<option value="default">Not Yet Explored</option>' +
+    '<option value="strayed">Strayed</option>' +
+    '<option value="traveled">Traveled</option>' +
+    '<option value="passed">Passed</option>' +
+    '</select>';
+  return div;
+};
+explorationStatusSelect.addTo(map);
+
+var legend = L.control({ position: 'bottomright' });
+legend.onAdd = function(map) {
+  var div = L.DomUtil.create('div', 'leaflet-control legend');
+  var html = '';
+  for (var status in fillColors) {
+    html += '<div><span class="square" style="background-color: ' + fillColors[status] + ';"></span> ' + status.charAt(0).toUpperCase() + status.slice(1) + '</div>';
+    }
+    div.innerHTML = html;
+    return div;
+    };
+    legend.addTo(map); // add the legend to the map
+
+</script>
+  </body>
+</html>
